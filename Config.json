@@ -1,7 +1,0 @@
-{
-    "REDSHIFT_HOST": "data-engineer-cluster.cyhh5bfevlmn.us-east-1.redshift.amazonaws.com",
-    "REDSHIFT_PORT": "5439",
-    "REDSHIFT_DB": "data-engineer-database",
-    "REDSHIFT_USER": "taberajorge_coderhouse",
-    "REDSHIFT_PASSWORD": "O956VwKRBB"
-}
