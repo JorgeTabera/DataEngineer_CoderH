@@ -1,0 +1,17 @@
+
+CREATE TABLE taberajorge_coderhouse.datos_meteorologicos (
+    ciudad VARCHAR(50),
+    fecha DATE,
+    temperatura FLOAT,
+    presion FLOAT,
+    humedad FLOAT,
+    velocidad_viento FLOAT,
+    descripcion_clima VARCHAR(100)
+);
+
+activar entorno virtual .evenv : python -m venv .venv
+o: c:/Users/user/Python.VS/.venv/Scripts/Activate.ps1
+
+usar el requirements: pip install -r requirements.txt
+
+para desactivar: deactivar

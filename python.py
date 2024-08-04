@@ -1,108 +1,84 @@
 import requests
+import pandas as pd
 import json
-import psycopg2
-from psycopg2 import sql
+from sqlalchemy import create_engine, text
 
-# Configuración de la conexión a Redshift
-REDSHIFT_HOST = 'data-engineer-cluster.cyhh5bfevlmn.us-east-1.redshift.amazonaws.com'
-REDSHIFT_PORT = '5439'
-REDSHIFT_DB = 'data-engineer-database'
-REDSHIFT_USER = 'taberajorge_coderhouse'
-REDSHIFT_PASSWORD = 'O956VwKRBB'
+# Paso 1: Extraer datos desde la API de Weatherbit.io
+api_key = 'cfe5adde1a2b4abd8e953a3cd14f8f12'
+ciudad = 'Argentina'
+url = f'http://api.weatherbit.io/v2.0/current?city={ciudad}&key={api_key}'
 
-def extract_data():
-    """
-    Función para extraer datos de la API de CoinGecko.
-    """
-    url = "https://api.coingecko.com/api/v3/coins/markets"
-    params = {
-        'vs_currency': 'usd',
-        'ids': 'bitcoin,ethereum,ripple',
-        'order': 'market_cap_desc',
-        'per_page': 3,
-        'page': 1
+try:
+    response = requests.get(url)
+    response.raise_for_status()  # Lanza una excepción si la respuesta tiene un código de error
+    data = response.json()
+except requests.RequestException as e:
+    print(f"Error en la solicitud a la API: {e}")
+    data = {}
+except json.JSONDecodeError as e:
+    print(f"Error al decodificar la respuesta JSON: {e}")
+    data = {}
+
+if 'data' not in data or not data['data']:
+    print("No se encontraron datos en la respuesta de la API.")
+else:
+    # Paso 2: Transformar los datos
+    weather_data = data['data'][0]  # Extrae el primer (y único) registro
+
+    registro = {
+        'ciudad': weather_data.get('city_name', 'Desconocida'),
+        'fecha': weather_data.get('ob_time', '').split(' ')[0],
+        'temperatura': weather_data.get('temp', None),
+        'presion': weather_data.get('pres', None),
+        'humedad': weather_data.get('rh', None),
+        'velocidad_viento': weather_data.get('wind_spd', None),
+        'descripcion_clima': weather_data.get('weather', {}).get('description', 'Desconocida')
     }
-    
-    response = requests.get(url, params=params)
-    if response.status_code == 200:
-        return response.json()
-    else:
-        print(f"Error en la solicitud: {response.status_code}")
-        return None
 
-def transform_data(data):
-    """
-    Función para transformar los datos extraídos en un diccionario organizado.
-    """
-    transformed_data = []
-    for coin in data:
-        coin_info = {
-            'id': coin['id'],
-            'name': coin['name'],
-            'symbol': coin['symbol'],
-            'current_price': coin['current_price'],
-            'market_cap': coin['market_cap'],
-            'total_volume': coin['total_volume']
-        }
-        transformed_data.append(coin_info)
-    return transformed_data
+    # Convertir el registro a un DataFrame
+    df = pd.DataFrame([registro])
 
-def load_data_to_redshift(data):
-    """
-    Función para cargar los datos transformados en Amazon Redshift.
-    """
+    # Paso 3: Cargar los datos en Amazon Redshift
+
+    # Cargar credenciales desde el archivo Config.json
     try:
-        conn = psycopg2.connect(
-            dbname=REDSHIFT_DB,
-            user=REDSHIFT_USER,
-            password=REDSHIFT_PASSWORD,
-            host=REDSHIFT_HOST,
-            port=REDSHIFT_PORT
-        )
-        cursor = conn.cursor()
+        with open('Config.json', 'r') as file:
+            credentials = json.load(file)
+    except FileNotFoundError:
+        print("El archivo Config.json no se encontró.")
+        credentials = {}
+    except json.JSONDecodeError:
+        print("Error al decodificar el archivo Config.json.")
+        credentials = {}
 
-        insert_query = sql.SQL("""
-            INSERT INTO cryptocurrencies (id, name, symbol, current_price, market_cap, total_volume)
-            VALUES (%s, %s, %s, %s, %s, %s)
-            ON CONFLICT (id) DO UPDATE
-            SET name = EXCLUDED.name,
-                symbol = EXCLUDED.symbol,
-                current_price = EXCLUDED.current_price,
-                market_cap = EXCLUDED.market_cap,
-                total_volume = EXCLUDED.total_volume;
-        """)
+    # Asignar variables desde el JSON
+    REDSHIFT_HOST = credentials.get('REDSHIFT_HOST')
+    REDSHIFT_PORT = credentials.get('REDSHIFT_PORT')
+    REDSHIFT_DB = credentials.get('REDSHIFT_DB')
+    REDSHIFT_USER = credentials.get('REDSHIFT_USER')
+    REDSHIFT_PASSWORD = credentials.get('REDSHIFT_PASSWORD')
 
-        for coin in data:
-            cursor.execute(insert_query, (
-                coin['id'],
-                coin['name'],
-                coin['symbol'],
-                coin['current_price'],
-                coin['market_cap'],
-                coin['total_volume']
-            ))
+    if not all([REDSHIFT_HOST, REDSHIFT_PORT, REDSHIFT_DB, REDSHIFT_USER, REDSHIFT_PASSWORD]):
+        print("Faltan credenciales en el archivo Config.json.")
+    else:
+        try:
+            # Conectar a Redshift
+            engine = create_engine(f'redshift+psycopg2://{REDSHIFT_USER}:{REDSHIFT_PASSWORD}@{REDSHIFT_HOST}:{REDSHIFT_PORT}/{REDSHIFT_DB}')
 
-        conn.commit()
-        cursor.close()
-        conn.close()
-        print("Datos cargados en Redshift correctamente.")
-    
-    except Exception as e:
-        print(f"Error al cargar los datos en Redshift: {e}")
+            # Probar conexión
+            with engine.connect() as connection:
+                result = connection.execute("SELECT 1")
+                print("Conexión a Redshift exitosa:", result.fetchone())
 
-def main():
-    """
-    Función principal que coordina el proceso de ETL.
-    """
-    print("Extrayendo datos...")
-    raw_data = extract_data()
-    
-    if raw_data:
-        print("Transformando datos...")
-        transformed_data = transform_data(raw_data)
-        
-        print("Cargando datos en Redshift...")
-        load_data_to_redshift(transformed_data)
+            # Crear sentencia de inserción
+            with engine.connect() as connection:
+                for index, row in df.iterrows():
+                    insert_query = text("""
+                        INSERT INTO datos_meteorologicos (ciudad, fecha, temperatura, presion, humedad, velocidad_viento, descripcion_clima)
+                        VALUES (:ciudad, :fecha, :temperatura, :presion, :humedad, :velocidad_viento, :descripcion_clima)
+                    """)
+                    connection.execute(insert_query, **row.to_dict())
 
-if __name__ == "__main__":
-    main()
+            print("Datos insertados exitosamente en Redshift.")
+        except Exception as e:
+            print(f"Error al conectar a Redshift o cargar datos: {e}")

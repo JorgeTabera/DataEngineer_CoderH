@@ -1,0 +1,17 @@
+GIT: https://github.com/JorgeTabera/DataEngineer_CoderH.git
+
+para gregar es clic derecho git Bush, agregar 
+git add .
+git commit -m "mensaje del commit"
+para subir es git push -u origin main
+
+
+para eliminar cache si deseo ignorar algo ya subido y después hacer el proceso de arriba: 
+git rm -r --cached .
+
+API Key	Name	
+cfe5adde1a2b4abd8e953a3cd14f8f12	Master API Key
+
+c:/Users/user/Python.VS/.venv/Scripts/Activate.ps1
+muestra que estoy ene l entorno virtual: (.venv) 
+para desactivar: deactivate
