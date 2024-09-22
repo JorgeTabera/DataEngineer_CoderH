@@ -1,0 +1,17 @@
+
+a modo de información esta seria la tabla creada en DBeaber
+CREATE TABLE IF NOT EXISTS PlaylistTracks (
+    playlist_id VARCHAR(500),
+    track_id VARCHAR(500),
+    track_name VARCHAR(500),
+    track_href VARCHAR(500),
+    track_uri VARCHAR(500),
+    fechaingreso DATE,
+    PRIMARY KEY (track_id)
+);
+
+Notas:
+DAG ID: dag_spotify_tracks
+En Connection Type: Postgres
+En Host: host.docker.internal
+schema: spotify_db
