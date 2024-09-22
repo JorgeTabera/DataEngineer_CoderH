@@ -21,5 +21,3 @@ Configura tus credenciales en Credentials.json.
 Uso: Para ejecutar el proceso ETL manualmente, usa el comando: python run_etl.py. Para programar la ejecución automática, configura Airflow y asegúrate de que el DAG está habilitado.
 
 Notificaciones: Recibirás un correo electrónico notificando el estado del proceso ETL (completado o fallido).
-
-Contribuciones: Las contribuciones son bienvenidas. Si deseas colaborar, abre un issue o envía un pull request.
